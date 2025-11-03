@@ -342,8 +342,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     );
                                   },
                             child: const Text(
-                              "Iniciar sesión",
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                              "Iniciar sesión 💚",
+                              style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                                color: Colors.green,),
                             ),
                           ),
                         ],

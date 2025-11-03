@@ -25,7 +25,6 @@ class MoodStorage {
     }
 
     moods[dateKey] = payload;
-
     await prefs.setString(_key, json.encode(moods));
   }
 
@@ -50,5 +49,27 @@ class MoodStorage {
       }
     });
     return result;
+  }
+
+  /// 🔎 Nuevo: obtiene {mood, note?} de una fecha específica
+  static Future<Map<String, String>?> getByDate(String dateKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_key);
+    if (stored == null) return null;
+
+    final decoded = json.decode(stored);
+    if (decoded is! Map) return null;
+
+    final v = decoded[dateKey];
+    if (v == null) return null;
+
+    if (v is String) return {"mood": v};
+    if (v is Map) {
+      final mood = v["mood"]?.toString();
+      final note = v["note"]?.toString();
+      if (mood == null) return null;
+      return {"mood": mood, if (note != null) "note": note};
+    }
+    return null;
   }
 }

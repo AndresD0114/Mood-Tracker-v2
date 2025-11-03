@@ -42,7 +42,7 @@ class _MoodInputScreenState extends State<MoodInputScreen> {
   void initState() {
     super.initState();
 
-    // Inyección simple (podés migrar a Provider/Riverpod)
+    // Inyección simple
     final ds = AuthRemoteDataSource();
     final repo = AuthRepository(ds);
     final moodService = UsuarioMoodService(authRepository: repo);
@@ -52,7 +52,26 @@ class _MoodInputScreenState extends State<MoodInputScreen> {
       moodOptions,
       moodService: moodService,
     );
+
+    // Si viene mood preseleccionado, lo asigno
     controller.selectedMood = widget.initialMood;
+
+    // 🔄 Cargar mood+nota existentes (local/remoto) del día mostrado
+    final date = widget.selectedDate ?? DateTime.now();
+    _loadExisting(date);
+  }
+
+  Future<void> _loadExisting(DateTime date) async {
+    final data = await controller.loadForDate(date);
+    if (!mounted) return;
+
+    setState(() {
+      // El controller ya setea selectedMood si existe
+      final note = data["note"];
+      if (note != null && note.isNotEmpty) {
+        _noteCtrl.text = note; // 👈 Pintar nota traída de BD o local
+      }
+    });
   }
 
   @override
@@ -91,7 +110,8 @@ class _MoodInputScreenState extends State<MoodInputScreen> {
       ),
     );
 
-    _noteCtrl.clear();
+    // No limpio la nota: si el usuario vuelve quiere verla editada.
+    // _noteCtrl.clear();
   }
 
   Future<void> _logout() async {

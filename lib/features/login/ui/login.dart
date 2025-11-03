@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../firebase/data/auth_datasource.dart';
 import '../../../firebase/data/auth_repository.dart';
 import '../../../firebase/logic/auth_controller.dart';
-import '../../../firebase/UsuarioMoodService.dart';
 import '../../../session_manager.dart';
 import '../../../main.dart';
+import '../../registro/ui/registro.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -108,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.grey.shade100,
       body: Column(
         children: [
-          // Banner
+          // 🌈 Banner superior
           Container(
             width: double.infinity,
             padding: const EdgeInsets.only(top: 60, bottom: 30),
@@ -145,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // Form
+          // 📄 Tarjeta con formulario
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -154,7 +154,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: const [
-                    BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 6)),
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 12,
+                      offset: Offset(0, 6),
+                    ),
                   ],
                   border: Border.all(color: Colors.grey, width: 0.2),
                 ),
@@ -163,6 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   key: _formKey,
                   child: Column(
                     children: [
+                      // Correo
                       TextFormField(
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
@@ -181,6 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 14),
 
+                      // Contraseña
                       TextFormField(
                         controller: _passCtrl,
                         obscureText: _obscure,
@@ -190,25 +196,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           suffix: IconButton(
                             onPressed: () => setState(() => _obscure = !_obscure),
                             icon: Icon(
-                              _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              _obscure
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                               color: Colors.green,
                             ),
                           ),
                         ),
                         validator: (v) {
-                          if ((v ?? '').length < 6) return "Mínimo 6 caracteres";
+                          if ((v ?? '').length < 6) {
+                            return "Mínimo 6 caracteres";
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 18),
 
+                      // 🟩 Botón principal
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: _loading ? null : _doLogin,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: _loading ? Colors.grey : Colors.green,
+                            backgroundColor:
+                                _loading ? Colors.grey : Colors.green,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15),
                             ),
@@ -216,18 +228,52 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           icon: _loading
                               ? const SizedBox(
-                                  width: 20, height: 20,
+                                  width: 20,
+                                  height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
                               : const Icon(Icons.login, color: Colors.white),
                           label: Text(
                             _loading ? "Ingresando..." : "Ingresar",
-                            style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
+                      ),
+
+                      // 👇 NUEVO BLOQUE: enlace a registro
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text("¿No tenés cuenta? "),
+                          TextButton(
+                            onPressed: _loading
+                                ? null
+                                : () {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const RegisterScreen(),
+                                      ),
+                                    );
+                                  },
+                            child: const Text(
+                              "Registrate acá 💚",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -236,12 +282,15 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // Aviso
+          // 📝 Aviso legal
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               "Al continuar aceptás nuestras políticas de uso.",
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12,
+              ),
             ),
           ),
         ],

@@ -2,6 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../mood_input/ui/mood_input_screen.dart';
+
+// 🔧 Firebase + Auth
+import '../../../firebase/data/auth_datasource.dart';
+import '../../../firebase/data/auth_repository.dart';
+import '../../../firebase/logic/auth_controller.dart';
+import '../../../session_manager.dart';
+import '../../../main.dart';
+import '../../login/ui/login.dart';
+
+// 📊 Data y lógica del calendario
+import '../data/calendar_remote.dart';
 import '../logic/calendar_logic.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -12,7 +23,8 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  final _logic = CalendarLogic();
+  late final CalendarLogic _logic;
+  late final AuthController _auth;
 
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -23,11 +35,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.initState();
     _selectedDay = DateTime.now();
     _focusedDay = DateTime.now();
+
+    // 🧩 Inyección simple
+    final ds = AuthRemoteDataSource();
+    final repo = AuthRepository(ds);
+    final remote = CalendarRemoteData(authRepository: repo);
+    _logic = CalendarLogic(remote: remote);
+    _auth = AuthController(repo);
+
     _loadMoods();
   }
 
   Future<void> _loadMoods() async {
     final data = await _logic.getMoods();
+    if (!mounted) return;
     setState(() => moods = data);
   }
 
@@ -42,11 +63,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     if (updated != null) {
       await _loadMoods();
+      if (!mounted) return;
       setState(() {
         _selectedDay = date;
         _focusedDay = date;
       });
+    } else {
+      await _loadMoods();
     }
+  }
+
+  /// 🚪 Cierra sesión y redirige al login
+  Future<void> _logout() async {
+    await _auth.logout();
+    await SessionManager.clearSession();
+
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   @override
@@ -64,6 +101,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
           "📅 Calendario",
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black87),
+            tooltip: "Actualizar",
+            onPressed: _loadMoods,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            tooltip: "Cerrar sesión",
+            onPressed: _logout,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -101,15 +150,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     // 🧠 Bloquear días futuros
                     enabledDayPredicate: (day) {
                       final now = DateTime.now();
-                      return !day.isAfter(
-                        DateTime(now.year, now.month, now.day),
-                      );
+                      return !day.isAfter(DateTime(now.year, now.month, now.day));
                     },
 
                     onDaySelected: (selected, focused) {
-                      // Evitar seleccionar días futuros
                       if (selected.isAfter(DateTime.now())) return;
-
                       setState(() {
                         _selectedDay = selected;
                         _focusedDay = focused;
