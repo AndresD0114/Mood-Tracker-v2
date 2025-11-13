@@ -221,7 +221,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           icon: Icons.person_outline,
                         ),
                         validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? "Ingresá tu nombre" : null,
+                            (v == null || v.trim().isEmpty) ? "Ingresa tu nombre" : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -230,12 +230,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
                         decoration: _inputDecoration(
-                          label: "Correo institucional",
+                          label: "Correo",
                           icon: Icons.email_outlined,
                         ),
                         validator: (v) {
                           final value = v?.trim() ?? '';
-                          if (value.isEmpty) return "Ingresá tu correo";
+                          if (value.isEmpty) return "Ingresa tu correo";
                           if (!RegExp(r'^[\w\.\-]+@[\w\.\-]+\.\w+$').hasMatch(value)) {
                             return "Correo no válido";
                           }
@@ -329,7 +329,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text("¿Ya tenés cuenta? "),
+                          const Text("¿Ya tienes una cuenta? "),
                           TextButton(
                             onPressed: _loading
                                 ? null
@@ -361,7 +361,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
-              "Al registrarte aceptás nuestras políticas de uso.",
+              "Al registrarte aceptas nuestras políticas de uso.",
               style: TextStyle(
                 color: Colors.grey.shade600,
                 fontSize: 12,

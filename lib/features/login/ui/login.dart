@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Icon(Icons.lock_outline, size: 60, color: Colors.white),
                 SizedBox(height: 10),
                 Text(
-                  "Iniciá sesión 💚",
+                  "Inicia sesión 💚",
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -134,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 SizedBox(height: 6),
                 Text(
-                  "Accedé para registrar tu estado de ánimo",
+                  "Accede para registrar tu estado de ánimo",
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
@@ -172,12 +172,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
                         decoration: _inputDecoration(
-                          label: "Correo institucional",
+                          label: "Correo",
                           icon: Icons.email_outlined,
                         ),
                         validator: (v) {
                           final value = v?.trim() ?? '';
-                          if (value.isEmpty) return "Ingresá tu correo";
+                          if (value.isEmpty) return "Ingresa tu correo";
                           if (!RegExp(r"^[\w\.\-]+@[\w\.\-]+\.\w+$").hasMatch(value)) {
                             return "Correo no válido";
                           }
@@ -253,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text("¿No tenés cuenta? "),
+                          const Text("¿No tienes cuenta? "),
                           TextButton(
                             onPressed: _loading
                                 ? null
@@ -266,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     );
                                   },
                             child: const Text(
-                              "Registrate acá 💚",
+                              "Regístrate aquí 💚",
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: Colors.green,
