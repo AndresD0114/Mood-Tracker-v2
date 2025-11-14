@@ -1,16 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../logic/weekly_mood_logic.dart';
-import '../data/mood_repository.dart';
-import 'weekly_mood_chat.dart'; // WeeklyMoodBarChart
-
-// Firebase + Auth
-import '../../../firebase/data/auth_datasource.dart';
-import '../../../firebase/data/auth_repository.dart';
-import '../../../firebase/UsuarioMoodService.dart';
-
-// Frases motivacionales
-import '../data/quote_repository.dart';
+import 'weekly_mood_chat.dart';
 
 class MoodStatsScreen extends StatefulWidget {
   const MoodStatsScreen({super.key});
@@ -24,48 +18,21 @@ class _MoodStatsScreenState extends State<MoodStatsScreen> {
   List<double?> averages = List<double?>.filled(7, null);
   DateTimeRange? _selectedRange;
 
-  // 👇 Estado para la frase
-  String? _quoteText;
-  String? _quoteAuthor;
-  bool _loadingQuote = false;
+  /// Frase motivacional (ya traducida o fallback)
+  String _quote = "Selecciona un rango para ver tendencias";
 
   @override
   void initState() {
     super.initState();
-
-    // 🧩 Inyección simple (igual estilo que el resto de la app)
-    final ds = AuthRemoteDataSource();
-    final repo = AuthRepository(ds);
-    final moodService = UsuarioMoodService(authRepository: repo);
-
-    _logic = WeeklyMoodLogic(
-      localRepo: MoodRepository(),
-      moodService: moodService,
-    );
-
+    _logic = WeeklyMoodLogic.standard();
     _loadData();
-    _loadQuote();
+    _fetchMotivationalQuote();
   }
 
   Future<void> _loadData() async {
     final computed = await _logic.loadAndCompute(_selectedRange);
     if (!mounted) return;
     setState(() => averages = computed);
-  }
-
-  Future<void> _loadQuote() async {
-    setState(() => _loadingQuote = true);
-    try {
-      final repo = QuoteRepository();
-      final data = await repo.fetchDailyQuote();
-      if (!mounted) return;
-      setState(() {
-        _quoteText = data['quote'];
-        _quoteAuthor = data['author'];
-      });
-    } finally {
-      if (mounted) setState(() => _loadingQuote = false);
-    }
   }
 
   Future<void> _pickDateRange() async {
@@ -87,6 +54,57 @@ class _MoodStatsScreenState extends State<MoodStatsScreen> {
     }
   }
 
+  /// 🔥 Frase motivacional desde ZenQuotes + traducción con MyMemory
+  Future<void> _fetchMotivationalQuote() async {
+    try {
+      // 1) Llamamos a ZenQuotes usando un proxy para evitar CORS en web
+      final proxyUrl = Uri.parse(
+        'https://api.allorigins.win/get?url=${Uri.encodeComponent('https://zenquotes.io/api/random')}',
+      );
+      final proxyResponse = await http.get(proxyUrl);
+
+      if (proxyResponse.statusCode == 200) {
+        final outer = json.decode(proxyResponse.body);
+        final List inner = json.decode(outer['contents']);
+        final originalQuote = "${inner[0]['q']} — ${inner[0]['a']}";
+
+        // 2) Traducción automática con MyMemory (en → es)
+        final translationUrl = Uri.parse(
+          'https://api.mymemory.translated.net/get?q=${Uri.encodeComponent(originalQuote)}&langpair=en|es',
+        );
+        final translationResponse = await http.get(translationUrl);
+
+        if (translationResponse.statusCode == 200) {
+          final translationData = json.decode(translationResponse.body);
+          final translatedText =
+              (translationData['responseData']['translatedText'] ?? '')
+                  .toString()
+                  .trim();
+
+          if (!mounted) return;
+          setState(() {
+            _quote = translatedText.isNotEmpty
+                ? translatedText
+                : originalQuote; // fallback
+          });
+        } else {
+          if (!mounted) return;
+          setState(() => _quote = originalQuote);
+        }
+      } else {
+        if (!mounted) return;
+        setState(
+          () => _quote = "Sigue adelante, cada día cuenta 💪",
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(
+        () => _quote = "No se pudo cargar la frase hoy 😔",
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasAny = averages.any((e) => e != null);
@@ -102,13 +120,12 @@ class _MoodStatsScreenState extends State<MoodStatsScreen> {
           ),
         ),
         backgroundColor: Colors.grey.shade100,
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               _loadData();
-              _loadQuote(); // refrescar también la frase si querés
+              _fetchMotivationalQuote();
             },
           ),
         ],
@@ -150,110 +167,78 @@ class _MoodStatsScreenState extends State<MoodStatsScreen> {
     );
   }
 
-  Widget _buildBanner() {
-    final rangeText = _selectedRange == null
-        ? "Selecciona un rango para ver tendencias"
-        : "Del ${_selectedRange!.start.day}/${_selectedRange!.start.month} "
-          "al ${_selectedRange!.end.day}/${_selectedRange!.end.month}";
-
-    final quote = _quoteText;
-    final author = _quoteAuthor;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.teal.shade400, Colors.teal.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 8,
+  Widget _buildBanner() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade400, Colors.teal.shade700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.insights, size: 40, color: Colors.white),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Tu resumen emocional",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.insights, size: 40, color: Colors.white),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Tu resumen emocional",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  rangeText,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // 💬 Frase motivacional
-                if (_loadingQuote)
+                  const SizedBox(height: 4),
                   Text(
-                    "Cargando frase del día...",
+                    _selectedRange == null
+                        ? "Selecciona un rango para ver tendencias"
+                        : "Del ${_selectedRange!.start.day}/${_selectedRange!.start.month} "
+                          "al ${_selectedRange!.end.day}/${_selectedRange!.end.month}",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '“$_quote”',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 13,
                       fontStyle: FontStyle.italic,
                     ),
-                  )
-                else if (quote != null && quote.isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "“$quote”",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      if (author != null && author.isNotEmpty)
-                        Text(
-                          "- $author",
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 12,
-                          ),
-                        ),
-                    ],
                   ),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: _pickDateRange,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.teal.shade700,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                ],
               ),
             ),
-            icon: const Icon(Icons.date_range),
-            label: const Text("Rango"),
-          ),
-        ],
-      ),
-    );
-  }
+            ElevatedButton.icon(
+              onPressed: _pickDateRange,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.teal.shade700,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.date_range),
+              label: const Text("Rango"),
+            ),
+          ],
+        ),
+      );
 
   Widget _buildLegendRow() => Wrap(
         alignment: WrapAlignment.center,

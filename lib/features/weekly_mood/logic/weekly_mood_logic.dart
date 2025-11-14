@@ -2,34 +2,50 @@ import 'package:flutter/material.dart';
 
 import '../data/mood_repository.dart';
 import '../../../firebase/UsuarioMoodService.dart';
+import '../../../firebase/data/auth_datasource.dart';
+import '../../../firebase/data/auth_repository.dart';
 
+/// Lógica combinada para estadísticas semanales.
+/// Lee estados desde:
+///   1) Local (SharedPreferences) vía MoodRepository
+///   2) Remoto (Firestore) vía UsuarioMoodService
 class WeeklyMoodLogic {
-  final MoodRepository _localRepo;
-  final UsuarioMoodService _moodService;
+  final MoodRepository localRepo;
+  final UsuarioMoodService moodService;
 
   WeeklyMoodLogic({
-    required MoodRepository localRepo,
-    required UsuarioMoodService moodService,
-  })  : _localRepo = localRepo,
-        _moodService = moodService;
+    required this.localRepo,
+    required this.moodService,
+  });
 
-  /// Carga los moods desde:
-  ///  - Local (SharedPreferences)
-  ///  - Remoto (Firestore vía UsuarioMoodService)
-  /// y calcula los promedios semanales.
+  /// Factory de conveniencia para usar directamente desde la UI
+  factory WeeklyMoodLogic.standard() {
+    final ds = AuthRemoteDataSource();
+    final authRepo = AuthRepository(ds);
+    final moodService = UsuarioMoodService(authRepository: authRepo);
+    final localRepo = MoodRepository();
+
+    return WeeklyMoodLogic(
+      localRepo: localRepo,
+      moodService: moodService,
+    );
+  }
+
+  /// Carga estados locales + remotos, los fusiona y calcula promedios
+  /// por día de la semana (Lun..Dom).
   Future<List<double?>> loadAndCompute([DateTimeRange? range]) async {
     // 1) Local
-    final local = await _localRepo.loadMoods();
+    final Map<String, String> local = await localRepo.loadMoods();
 
-    // 2) Remoto
+    // 2) Remoto (Firestore)
     Map<String, String> remote = {};
     try {
-      remote = await _moodService.fetchEstadosComoMapa();
+      remote = await moodService.fetchEstadosComoMapa();
     } catch (_) {
-      // podés loguear suave si querés
+      // Si falla Firestore, seguimos solo con local
     }
 
-    // 3) Merge: remoto sobrescribe local
+    // 3) Merge: remoto sobrescribe local si hay misma fecha
     final merged = <String, String>{
       ...local,
       ...remote,
@@ -52,38 +68,57 @@ class WeeklyMoodLogic {
       case "Muy Feliz":
         return 4.0;
       default:
-        return 2.0;
+        return 2.0; // Neutral por defecto
     }
   }
 
   /// Calcula los promedios de mood agrupados por día de la semana.
+  /// Devuelve una lista de 7 posiciones: [Lun, Mar, Mié, Jue, Vie, Sáb, Dom]
   List<double?> _averageByWeekday(
-      Map<String, String> entries, DateTimeRange? range) {
+    Map<String, String> entries,
+    DateTimeRange? range,
+  ) {
     final buckets = List<List<double>>.generate(7, (_) => []);
 
     entries.forEach((dateStr, mood) {
       try {
         final parts = dateStr.split('-');
         if (parts.length != 3) return;
+
         final dt = DateTime(
           int.parse(parts[0]),
           int.parse(parts[1]),
           int.parse(parts[2]),
         );
 
-        if (range != null &&
-            (dt.isBefore(range.start) || dt.isAfter(range.end))) {
-          return;
+        if (range != null) {
+          // Rango inclusivo
+          final start = DateTime(range.start.year, range.start.month, range.start.day);
+          final end = DateTime(range.end.year, range.end.month, range.end.day);
+          final current = DateTime(dt.year, dt.month, dt.day);
+
+          if (current.isBefore(start) || current.isAfter(end)) {
+            return;
+          }
         }
 
-        final idx = dt.weekday - 1; // 0 = lunes ... 6 = domingo
+        final idx = dt.weekday - 1; // 1=Lunes -> 0
+        if (idx < 0 || idx > 6) return;
+
         buckets[idx].add(_moodToValue(mood));
-      } catch (_) {}
+      } catch (_) {
+        // Si falla el parse, ignoramos esa entrada
+      }
     });
 
+    // Promedio por día o null si no hay datos
     return buckets.map((list) {
       if (list.isEmpty) return null;
-      return list.reduce((a, b) => a + b) / list.length;
+      final sum = list.reduce((a, b) => a + b);
+      return sum / list.length;
     }).toList();
   }
+
+  /// (Opcional) limpiar solo los datos locales, útil para pruebas.
+  Future<void> clearLocal() => localRepo.clearMoods();
 }
